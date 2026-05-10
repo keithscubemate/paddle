@@ -14,8 +14,7 @@ pub enum Value {
     Symbol(String),
     Form(Form),
     Str(String),
-    // TODO(ajone239): move this to a ref when copies get expensive
-    List(Vec<Value>),
+    Cons(Rc<(Value, Value)>),
     Progn(Vec<Value>),
     Builtin(BuiltinFn, String),
     Macro {
@@ -35,9 +34,6 @@ pub enum Value {
     },
 }
 
-#[derive(Clone, PartialEq)]
-pub struct Lambda {}
-
 impl Value {
     pub fn truthy(&self) -> bool {
         match self {
@@ -45,7 +41,8 @@ impl Value {
             Value::Bool(val) => *val,
             Value::Num(num) => num.ne(&0.0),
             Value::Str(s) => !s.is_empty(),
-            Value::List(v) | Value::Progn(v) => !v.is_empty(),
+            Value::Progn(v) => !v.is_empty(),
+            Value::Cons(pair) => !matches!(pair.0, Self::Nil),
             Value::Symbol(_)
             | Value::Form(_)
             | Value::Builtin(_, _)
@@ -53,6 +50,18 @@ impl Value {
             | Value::Macro { .. }
             | Value::Lambda { .. } => true,
         }
+    }
+
+    pub fn to_cons_list(list: Vec<Self>) -> Self {
+        let mut rv = Value::Nil;
+        for val in list.into_iter().rev() {
+            rv = Value::Cons(Rc::new((val, rv)));
+        }
+        rv
+    }
+
+    pub fn to_cons_iter(&self) -> ConsIter<'_> {
+        ConsIter::new(self)
     }
 }
 
@@ -65,12 +74,26 @@ impl Display for Value {
             Value::Symbol(s) => write!(f, ":{}", s),
             Value::Form(form) => write!(f, "{:?}", form),
             Value::Str(s) => write!(f, "{}", s),
-            Value::List(values) => {
-                let nice_list = values
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ");
+            Value::Cons(pair) => {
+                let first = &pair.0;
+                let mut second = &pair.1;
+
+                if matches!(second, Value::Nil) {
+                    return write!(f, "'({})", first);
+                }
+
+                let mut vals = vec![first.to_string()];
+
+                while let Value::Cons(next_pair) = second {
+                    let first = &next_pair.0;
+                    vals.push(first.to_string());
+                    second = &next_pair.1;
+                }
+                if !matches!(second, Self::Nil) {
+                    vals.push(second.to_string());
+                }
+
+                let nice_list = vals.join(" ");
                 write!(f, "'({})", nice_list)
             }
             Value::Progn(values) => {
@@ -101,25 +124,31 @@ impl Display for Value {
     }
 }
 
+impl FromIterator<Value> for Value {
+    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
+        Value::to_cons_list(iter.into_iter().collect())
+    }
+}
+
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Nil => write!(f, "Nil"),
-            Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
-            Self::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
-            Self::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
-            Self::Form(arg0) => f.debug_tuple("Form").field(arg0).finish(),
-            Self::Str(arg0) => f.debug_tuple("Str").field(arg0).finish(),
-            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
-            Self::Progn(arg0) => f.debug_tuple("Progn").field(arg0).finish(),
-            Self::Builtin(arg0, arg1) => f.debug_tuple("Builtin").field(arg0).field(arg1).finish(),
-            Self::Macro { name, args, body } => f
+            Value::Nil => write!(f, "Nil"),
+            Value::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+            Value::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
+            Value::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
+            Value::Form(arg0) => f.debug_tuple("Form").field(arg0).finish(),
+            Value::Str(arg0) => f.debug_tuple("Str").field(arg0).finish(),
+            Value::Cons(arg0) => f.debug_tuple("Cons").field(arg0).finish(),
+            Value::Progn(arg0) => f.debug_tuple("Progn").field(arg0).finish(),
+            Value::Builtin(arg0, arg1) => f.debug_tuple("Builtin").field(arg0).field(arg1).finish(),
+            Value::Macro { name, args, body } => f
                 .debug_struct("Macro")
                 .field("name", name)
                 .field("args", args)
                 .field("body", body)
                 .finish(),
-            Self::Func { name, args, body } => f
+            Value::Func { name, args, body } => f
                 .debug_struct("Func")
                 .field("name", name)
                 .field("args", args)
@@ -135,7 +164,7 @@ impl Debug for Value {
     }
 }
 
-pub type Builtin = fn(&[Value]) -> Result<Value>;
+pub type Builtin = fn(&Value) -> Result<Value>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct BuiltinFn(pub Builtin);
@@ -161,7 +190,7 @@ pub enum Form {
 }
 
 impl Form {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn try_parse(s: &str) -> Option<Self> {
         // TODO(ajone239): make weird symbols for all these
         match s {
             "if" => Some(Self::If),
@@ -176,5 +205,41 @@ impl Form {
             "lambda" | "lamda" | ".\\" => Some(Self::Lambda),
             _ => None,
         }
+    }
+}
+
+pub struct ConsIter<'a> {
+    current: &'a Value,
+}
+
+impl<'a> ConsIter<'a> {
+    pub fn new(current: &'a Value) -> Self {
+        Self { current }
+    }
+
+    pub fn len(self) -> usize {
+        let mut len = 0;
+        for _ in self {
+            len += 1;
+        }
+        len
+    }
+
+    pub fn is_empty(self) -> bool {
+        !matches!(self.current, Value::Cons(_))
+    }
+}
+
+impl<'a> Iterator for ConsIter<'a> {
+    type Item = &'a Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Value::Cons(pair) = self.current else {
+            return None;
+        };
+
+        self.current = &pair.1;
+
+        Some(&pair.0)
     }
 }

@@ -17,7 +17,13 @@ model.
     + writeup of the `dumb_macros.pd` experiment
     + full data flow from bytes to eval in the readme
 - [ ] M1 — memory representation rework
-    + [ ] cons cells (Rc-cells vs arena: deferred)
+    + [x] cons cells (Rc-cells)
+        * [x] make value
+        * [x] lower -> test
+        * [x] lower -> unit test
+        * [x] move eval over
+        * [x] move quasiquote over
+        * [x] move unit tests
     + [ ] kill pervasive clones in `eval`/`apply`
     + [ ] fix nested-vector handling
 - [ ] M2 — make the language runnable
