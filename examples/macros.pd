@@ -52,3 +52,17 @@
             `(cons ((lambda (,bind)
                 ,(body)) ,(car xs)) ,(for2 (cdr xs)))))
       (for2 iter))
+
+(defm (for/or pair body)
+      (define bind (car pair))
+      (define iter (eval (cdr pair)))
+      (define (for2 xs)
+        (if (not xs)
+            'nil
+            `(progn
+               (define res
+                 ((lambda (,bind) ,(body)) ,(car xs)))
+               (if res
+                 res
+                 ,(for2 (cdr xs))))))
+      (for2 iter))
