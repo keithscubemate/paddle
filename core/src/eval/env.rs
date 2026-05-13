@@ -351,7 +351,7 @@ fn modulo(args: &Value) -> Result<Value> {
         return Err(BuiltinError::BadModArgCount.into());
     }
 
-    match (&pair.0, &pair2.0) {
+    match (&pair2.0, &pair.0) {
         (Value::Num(last), Value::Num(penu)) => Ok(Value::Num(penu % last)),
         _ => Err(BuiltinError::BadModArgTypes.into()),
     }

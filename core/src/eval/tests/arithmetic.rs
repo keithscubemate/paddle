@@ -74,3 +74,9 @@ fn nested_mixed() {
 fn deeply_nested() {
     assert_eq!(eval_str("(+ 1 (* 2 (- 10 (/ 6 2))))"), num(15.0));
 }
+
+#[test]
+fn modulo() {
+    assert_eq!(eval_str("(% 3 4)"), num(3.0));
+    assert_eq!(eval_str("(% 4 3)"), num(1.0));
+}
