@@ -15,7 +15,6 @@ pub enum Value {
     Form(Form),
     Str(String),
     Cons(Rc<(Value, Value)>),
-    Progn(Vec<Value>),
     Builtin(BuiltinFn, String),
     Macro {
         name: String,
@@ -41,7 +40,6 @@ impl Value {
             Value::Bool(val) => *val,
             Value::Num(num) => num.ne(&0.0),
             Value::Str(s) => !s.is_empty(),
-            Value::Progn(v) => !v.is_empty(),
             Value::Cons(pair) => !matches!(pair.0, Self::Nil),
             Value::Symbol(_)
             | Value::Form(_)
@@ -96,14 +94,6 @@ impl Display for Value {
                 let nice_list = vals.join(" ");
                 write!(f, "'({})", nice_list)
             }
-            Value::Progn(values) => {
-                let nice_list = values
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ");
-                write!(f, "'(progn {})", nice_list)
-            }
             Value::Builtin(_, name) => write!(f, "built-in: {} (...) {{...}}", name),
             Value::Func {
                 name,
@@ -140,7 +130,6 @@ impl Debug for Value {
             Value::Form(arg0) => f.debug_tuple("Form").field(arg0).finish(),
             Value::Str(arg0) => f.debug_tuple("Str").field(arg0).finish(),
             Value::Cons(arg0) => f.debug_tuple("Cons").field(arg0).finish(),
-            Value::Progn(arg0) => f.debug_tuple("Progn").field(arg0).finish(),
             Value::Builtin(arg0, arg1) => f.debug_tuple("Builtin").field(arg0).field(arg1).finish(),
             Value::Macro { name, args, body } => f
                 .debug_struct("Macro")
@@ -231,7 +220,7 @@ impl<'a> ConsIter<'a> {
         len
     }
 
-    pub fn is_empty(self) -> bool {
+    pub fn is_empty(&self) -> bool {
         !matches!(self.current, Value::Cons(_))
     }
 }

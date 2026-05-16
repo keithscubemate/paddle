@@ -137,17 +137,14 @@ fn eval_form(form: Form, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> 
                 })
                 .collect::<Result<Vec<String>, _>>()?;
 
-            let tail: Vec<_> = list.cloned().collect();
-
-            if tail.is_empty() {
+            if list.is_empty() {
                 return Err(EvalError::BadLambdaArgs.into());
             }
 
-            let body = if tail.len() == 1 {
-                Rc::new(tail[0].clone())
-            } else {
-                Rc::new(Value::Progn(tail))
-            };
+            let body = Rc::new(Value::Cons(Rc::new((
+                Value::Form(Form::Progn),
+                list.into_cons_list().clone(),
+            ))));
 
             let lambda = Value::Lambda {
                 args,
@@ -234,15 +231,6 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
     // eval the body with the new env
     // return the value
     let rv = match body.deref() {
-        Value::Progn(body) => {
-            if body.is_empty() {
-                return Err(EvalError::EmptyPrognBody.into());
-            }
-            for b in &body[..body.len() - 1] {
-                eval(b, &new_env)?;
-            }
-            eval(body.last().expect("progn body can't be empty"), &new_env)
-        }
         _ => eval(body, &new_env),
     };
 
@@ -283,13 +271,14 @@ fn define(form: &Form, body: &Value, env: &Rc<RefCell<Env>>) -> Result<()> {
                 args_list[1..].to_vec()
             };
 
-            let tail: Vec<_> = list.map(|v| v.to_owned()).collect();
+            if list.is_empty() {
+                return Err(EvalError::BadDefineArgs.into());
+            }
 
-            let body = if tail.len() == 1 {
-                Rc::new(tail[0].clone())
-            } else {
-                Rc::new(Value::Progn(tail))
-            };
+            let body = Rc::new(Value::Cons(Rc::new((
+                Value::Form(Form::Progn),
+                list.into_cons_list().clone(),
+            ))));
 
             let proc = match form {
                 Form::Define => Value::Func {
