@@ -212,14 +212,6 @@ impl<'a> ConsIter<'a> {
         cons
     }
 
-    pub fn len(self) -> usize {
-        let mut len = 0;
-        for _ in self {
-            len += 1;
-        }
-        len
-    }
-
     pub fn is_empty(&self) -> bool {
         !matches!(self.current, Value::Cons(_))
     }

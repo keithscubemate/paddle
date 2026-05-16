@@ -409,7 +409,7 @@ mod examples {
 
 mod errors {
     use super::*;
-    use paddle_core::eval::EvalError;
+    use paddle_core::eval::{EvalError, value::Form};
 
     #[test]
     fn undefined_symbol_bubbles_up() {
@@ -436,7 +436,7 @@ mod errors {
         let err = run_err("(lambda (x))");
         assert_eq!(
             err.downcast_ref::<EvalError>(),
-            Some(&EvalError::BadLambdaArgs)
+            Some(&EvalError::BadCallableBodyArgs(Form::Lambda))
         );
     }
 

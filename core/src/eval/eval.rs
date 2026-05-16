@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::{ops::Deref, rc::Rc};
+use std::rc::Rc;
 
 use anyhow::{Ok, Result, bail};
 
@@ -121,30 +121,7 @@ fn eval_form(form: Form, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> 
             }
         }
         Form::Lambda => {
-            let mut list = tail.to_cons_iter();
-
-            let arg_head = list.next().ok_or(EvalError::BadLambdaArgs)?;
-
-            if !matches!(arg_head, Value::Cons(_) | Value::Nil) {
-                return Err(EvalError::BadLambdaArgsList.into());
-            }
-
-            let args = arg_head
-                .to_cons_iter()
-                .map(|e| match e {
-                    Value::Symbol(a) => Ok((*a).to_owned()),
-                    _ => Err(EvalError::BadLambdaArgsListType.into()),
-                })
-                .collect::<Result<Vec<String>, _>>()?;
-
-            if list.is_empty() {
-                return Err(EvalError::BadLambdaArgs.into());
-            }
-
-            let body = Rc::new(Value::Cons(Rc::new((
-                Value::Form(Form::Progn),
-                list.into_cons_list().clone(),
-            ))));
+            let (_, args, body) = make_callable(&form, tail)?;
 
             let lambda = Value::Lambda {
                 args,
@@ -230,9 +207,7 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
 
     // eval the body with the new env
     // return the value
-    let rv = match body.deref() {
-        _ => eval(body, &new_env),
-    };
+    let rv = eval(body, &new_env);
 
     if is_macro { eval(&rv?, env) } else { rv }
 }
@@ -252,52 +227,61 @@ fn define(form: &Form, body: &Value, env: &Rc<RefCell<Env>>) -> Result<()> {
             env.borrow_mut().define(atom, value);
         }
         Value::Cons(_) => {
-            let args_list = head
-                .to_cons_iter()
-                .map(|e| match e {
-                    Value::Symbol(a) => Ok((*a).to_owned()),
-                    _ => Err(EvalError::BadDefineFunctionHeadTypes.into()),
-                })
-                .collect::<Result<Vec<String>, _>>()?;
+            let (name, args, body) = make_callable(form, body)?;
 
-            if args_list.is_empty() {
-                return Err(EvalError::BadDefineFunctionHead.into());
-            }
-
-            let name = &args_list[0];
-            let args = if args_list.len() == 1 {
-                vec![]
-            } else {
-                args_list[1..].to_vec()
+            let Some(name) = name else {
+                unreachable!();
             };
-
-            if list.is_empty() {
-                return Err(EvalError::BadDefineArgs.into());
-            }
-
-            let body = Rc::new(Value::Cons(Rc::new((
-                Value::Form(Form::Progn),
-                list.into_cons_list().clone(),
-            ))));
+            let tag = name.clone();
 
             let proc = match form {
-                Form::Define => Value::Func {
-                    name: name.clone(),
-                    args,
-                    body,
-                },
-                Form::DefineMacro => Value::Macro {
-                    name: name.clone(),
-                    args,
-                    body,
-                },
-                _ => unreachable!("{:?} should only be able to be define or definemacro", form),
+                Form::Define => Value::Func { name, args, body },
+                Form::DefineMacro => Value::Macro { name, args, body },
+                _ => unreachable!("should only get here from define or definemacro"),
             };
 
-            env.borrow_mut().define(name, proc);
+            env.borrow_mut().define(tag.as_str(), proc);
         }
         _ => return Err(EvalError::BadDefineHead.into()),
     };
 
     Ok(())
+}
+
+type CallableInfo = (Option<String>, Vec<String>, Rc<Value>);
+fn make_callable(form: &Form, body: &Value) -> Result<CallableInfo> {
+    let mut list = body.to_cons_iter();
+    let head = list.next().ok_or(EvalError::BadCallableArgs(*form))?;
+
+    if !matches!(head, Value::Cons(_) | Value::Nil) {
+        return Err(EvalError::BadCallableArgs(*form).into());
+    }
+
+    let args_list = head
+        .to_cons_iter()
+        .map(|e| match e {
+            Value::Symbol(a) => Ok((*a).to_owned()),
+            _ => Err(EvalError::BadCallableArgsListType(*form).into()),
+        })
+        .collect::<Result<Vec<String>, _>>()?;
+
+    let (name, args) = if matches!(form, Form::Lambda) {
+        (None, args_list)
+    } else {
+        if args_list.is_empty() {
+            return Err(EvalError::BadCallableHead(*form).into());
+        }
+        (Some(args_list[0].to_owned()), args_list[1..].to_vec())
+    };
+
+    if list.is_empty() {
+        return Err(EvalError::BadCallableBodyArgs(*form).into());
+    }
+
+    let body = Rc::new(Value::Cons(Rc::new((
+        Value::Form(Form::Progn),
+        list.into_cons_list().clone(),
+    ))));
+
+    Ok((name, args, body))
 }

@@ -11,6 +11,8 @@ pub use lower::lower;
 
 use thiserror::Error;
 
+use crate::eval::value::Form;
+
 #[derive(Debug, PartialEq, Error)]
 pub enum EvalError {
     #[error("Require takes 2 arguments got {0}")]
@@ -43,4 +45,12 @@ pub enum EvalError {
     UnquoteOutsideQuasi,
     #[error("Variadic args must come last.")]
     VariadicArgsMustBeLast,
+    #[error("No args provided for callable: {0:?}")]
+    BadCallableArgs(Form),
+    #[error("bad types for callable: {0:?}")]
+    BadCallableArgsListType(Form),
+    #[error("Need name for named callable: {0:?}")]
+    BadCallableHead(Form),
+    #[error("No body for callable: {0:?}")]
+    BadCallableBodyArgs(Form),
 }

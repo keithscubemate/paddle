@@ -23,7 +23,7 @@ fn bad_lambda_args() {
     let err = eval_err("(lambda (x))");
     assert_eq!(
         err.downcast_ref::<EvalError>(),
-        Some(&EvalError::BadLambdaArgs)
+        Some(&EvalError::BadCallableBodyArgs(Form::Lambda))
     );
 }
 
@@ -32,7 +32,7 @@ fn bad_lambda_args_list() {
     let err = eval_err("(lambda x x)");
     assert_eq!(
         err.downcast_ref::<EvalError>(),
-        Some(&EvalError::BadLambdaArgsList)
+        Some(&EvalError::BadCallableArgs(Form::Lambda))
     );
 }
 
@@ -41,7 +41,7 @@ fn bad_lambda_args_list_type() {
     let err = eval_err("(lambda (1) x)");
     assert_eq!(
         err.downcast_ref::<EvalError>(),
-        Some(&EvalError::BadLambdaArgsListType)
+        Some(&EvalError::BadCallableArgsListType(Form::Lambda))
     );
 }
 
@@ -68,7 +68,7 @@ fn bad_define_function_head_types() {
     let err = eval_err("(def (1 x) x)");
     assert_eq!(
         err.downcast_ref::<EvalError>(),
-        Some(&EvalError::BadDefineFunctionHeadTypes)
+        Some(&EvalError::BadCallableArgsListType(Form::Define))
     );
 }
 
