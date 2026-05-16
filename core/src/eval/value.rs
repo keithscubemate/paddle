@@ -217,6 +217,12 @@ impl<'a> ConsIter<'a> {
         Self { current }
     }
 
+    pub fn into_cons_list(&mut self) -> &'a Value {
+        let cons = self.current;
+        self.current = &Value::Nil;
+        cons
+    }
+
     pub fn len(self) -> usize {
         let mut len = 0;
         for _ in self {

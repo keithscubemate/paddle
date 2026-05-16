@@ -12,6 +12,7 @@ mod lambda;
 mod list;
 mod macros;
 mod quote;
+mod variadic;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,6 +48,10 @@ fn eval_str_env(exprs: &[&str]) -> Value {
 
 fn num(n: f64) -> Value {
     Value::Num(n)
+}
+
+fn sym(s: &str) -> Value {
+    Value::Symbol(s.to_owned())
 }
 
 fn cons(head: Value, tail: Value) -> Value {

@@ -4,9 +4,11 @@ use std::{ops::Deref, rc::Rc};
 use anyhow::{Ok, Result, bail};
 
 use crate::cursor::process_file;
-use crate::eval::EvalError;
-use crate::eval::env::Env;
-use crate::eval::value::{Form, Value};
+use crate::eval::{
+    EvalError,
+    env::Env,
+    value::{Form, Value},
+};
 
 pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
     match ast {
@@ -193,11 +195,27 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
 
     let is_macro = matches!(head, Value::Macro { .. });
 
+    let variadic = fargs.iter().enumerate().find(|(_, a)| a.ends_with("..."));
+    let (is_variadic, vidx, varg) = match variadic {
+        Some((idx, arg)) => (true, idx, arg),
+        None => (false, 0, &String::new()),
+    };
+
+    if is_variadic && vidx != fargs.len() - 1 {
+        return Err(EvalError::VariadicArgsMustBeLast.into());
+    }
+
+    let fiter = if is_variadic {
+        fargs[..vidx].iter()
+    } else {
+        fargs.iter()
+    };
+
     let mut citer = tail.to_cons_iter();
-    for arg in fargs.iter() {
+    for arg in fiter {
         let val = citer
             .next()
-            .ok_or(EvalError::BadFunctionArgCount(fargs.iter().len()))?;
+            .ok_or(EvalError::BadFunctionArgCount(fargs.len()))?;
 
         let val = if is_macro {
             val.clone()
@@ -208,8 +226,17 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
         new_env.borrow_mut().define(arg, val.clone());
     }
 
-    if citer.next().is_some() {
-        return Err(EvalError::BadFunctionArgCount(fargs.iter().len()).into());
+    if is_variadic {
+        let rest = if is_macro {
+            citer.into_cons_list().clone()
+        } else {
+            citer.map(|val| eval(val, env)).collect::<Result<_, _>>()?
+        };
+        new_env.borrow_mut().define(varg, rest);
+    } else {
+        if citer.next().is_some() {
+            return Err(EvalError::BadFunctionArgCount(fargs.len()).into());
+        }
     }
 
     // eval the body with the new env

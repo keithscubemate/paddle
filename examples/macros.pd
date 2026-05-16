@@ -14,24 +14,22 @@
 
 ; rec macros have to be defined like this so their args get processed
 (define else #t)
-(defmacro (cond pairs)
+(defmacro (cond pairs...)
     (define (cond2 pairs)
       (when pairs
        `(if ,(car (car pairs))
-            ,(cdr (car pairs))
+            ,(cadr (car pairs))
             ,(cond2 (cdr pairs)))))
-    (cond2 pairs))
+    (cond2 pairs...))
 
-(def (count-even-odd xs)
-    (if (not xs)
-        '()
+(def (even-odd xs)
+     (when xs
         (cons
-          (cond (
-                ((= 0 (car xs)) 0)
-                ((= 0 (% (car xs) 2)) 1)
-                (else -1)))
-          (count-even-odd (cdr xs))
-           )))
+          (cond
+            ((= 0 (car xs)) 'zero)
+            ((= 0 (% (car xs) 2)) 'even)
+            (else 'odd))
+          (even-odd (cdr xs)))))
 
 (defm (for pair body)
       (define bind (car pair))

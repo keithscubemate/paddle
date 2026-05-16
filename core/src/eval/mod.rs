@@ -41,4 +41,6 @@ pub enum EvalError {
     EmptyPrognBody,
     #[error("Unquoute called outside of a quasiquote context")]
     UnquoteOutsideQuasi,
+    #[error("Variadic args must come last.")]
+    VariadicArgsMustBeLast,
 }
