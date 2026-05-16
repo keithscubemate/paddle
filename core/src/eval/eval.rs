@@ -195,24 +195,18 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
 
     let is_macro = matches!(head, Value::Macro { .. });
 
-    let variadic = fargs.iter().enumerate().find(|(_, a)| a.ends_with("..."));
-    let (is_variadic, vidx, varg) = match variadic {
-        Some((idx, arg)) => (true, idx, arg),
-        None => (false, 0, &String::new()),
-    };
+    let varidx = fargs
+        .iter()
+        .position(|a| a.ends_with("..."))
+        .unwrap_or(fargs.len());
 
-    if is_variadic && vidx != fargs.len() - 1 {
+    // + 1 deals with underflow of usize
+    if varidx + 1 < fargs.len() {
         return Err(EvalError::VariadicArgsMustBeLast.into());
     }
 
-    let fiter = if is_variadic {
-        fargs[..vidx].iter()
-    } else {
-        fargs.iter()
-    };
-
     let mut citer = tail.to_cons_iter();
-    for arg in fiter {
+    for arg in fargs[..varidx].iter() {
         let val = citer
             .next()
             .ok_or(EvalError::BadFunctionArgCount(fargs.len()))?;
@@ -226,17 +220,15 @@ fn apply(head: &Value, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
         new_env.borrow_mut().define(arg, val.clone());
     }
 
-    if is_variadic {
+    if varidx < fargs.len() {
         let rest = if is_macro {
             citer.into_cons_list().clone()
         } else {
             citer.map(|val| eval(val, env)).collect::<Result<_, _>>()?
         };
-        new_env.borrow_mut().define(varg, rest);
-    } else {
-        if citer.next().is_some() {
-            return Err(EvalError::BadFunctionArgCount(fargs.len()).into());
-        }
+        new_env.borrow_mut().define(&fargs[varidx], rest);
+    } else if citer.next().is_some() {
+        return Err(EvalError::BadFunctionArgCount(fargs.len()).into());
     }
 
     // eval the body with the new env

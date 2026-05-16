@@ -16,6 +16,20 @@ fn define_variadic() {
 }
 
 #[test]
+fn define_variadic_lambda() {
+    assert_eq!(
+        eval_str_env(&[
+            "(def (sum xs)
+                (if xs
+                 (+ (car xs) (sum (cdr xs)))
+                 0))",
+            "((.\\ (x...) (sum x...)) 1 2 3)"
+        ]),
+        num(6.0)
+    );
+}
+
+#[test]
 fn define_variadic_eval() {
     assert_eq!(
         eval_str_env(&[
@@ -25,6 +39,20 @@ fn define_variadic_eval() {
                  0))",
             "(def (f x...) (sum x...))",
             "(f 1 2 (+ 1 2))"
+        ]),
+        num(6.0)
+    );
+}
+
+#[test]
+fn define_variadic_lambda_eval() {
+    assert_eq!(
+        eval_str_env(&[
+            "(def (sum xs)
+                (if xs
+                 (+ (car xs) (sum (cdr xs)))
+                 0))",
+            "((.\\ (x...) (sum x...)) 1 2 (+ 1 2))"
         ]),
         num(6.0)
     );

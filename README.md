@@ -23,7 +23,7 @@ model.
     + [x] fix nested-vector handling
 - [ ] M2 — make the language runnable
     + [ ] tail-call optimization
-    + [ ] variadic arguments (fix macros after this)
+    + [x] variadic arguments (fix macros after this)
     + [ ] `set!`
     + [ ] `let` / `let*`
     + [ ] error/condition system usable from Paddle
