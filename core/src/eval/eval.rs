@@ -10,6 +10,7 @@ use crate::eval::{
     value::{Form, Value},
 };
 
+// TODO(ajone239): use a trampoline
 pub fn eval(ast: &Value, env: Rc<RefCell<Env>>) -> Result<Value> {
     let Value::Cons(pair) = ast else {
         return match ast {
