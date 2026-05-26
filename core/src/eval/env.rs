@@ -34,6 +34,17 @@ impl Env {
         }
     }
 
+    pub fn small_dump(&self) {
+        for (k, v) in self
+            .env
+            .iter()
+            .filter(|(_, v)| !matches!(v, Value::Builtin(..)))
+        {
+            println!("{}: {}", k, v)
+        }
+        println!();
+    }
+
     pub fn dump(&self) {
         let venv: Vec<_> = self.env.iter().collect();
 

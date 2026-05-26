@@ -20,7 +20,7 @@ pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
                 let head = eval(&pair.0, env)?;
                 let tail = &pair.1;
 
-                let (body, args, env) = match &head {
+                let (body, args, fenv) = match &head {
                     Value::Func {
                         name: _,
                         body,
@@ -43,7 +43,7 @@ pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
 
                 let is_macro = matches!(head, Value::Macro { .. });
 
-                let nenv = setup_env(tail, args, is_macro, env)?;
+                let nenv = setup_env(tail, args, is_macro, env, fenv)?;
 
                 let rv = eval(body, &nenv);
 
@@ -170,9 +170,10 @@ fn setup_env(
     tail: &Value,
     fargs: &Vec<String>,
     is_macro: bool,
-    env: &Rc<RefCell<Env>>,
+    old_env: &Rc<RefCell<Env>>,
+    new_env: &Rc<RefCell<Env>>,
 ) -> Result<Rc<RefCell<Env>>> {
-    let new_env = Rc::new(RefCell::new(Env::new_child(env.clone())));
+    let new_env = Rc::new(RefCell::new(Env::new_child(new_env.clone())));
 
     let varidx = fargs
         .iter()
@@ -193,7 +194,7 @@ fn setup_env(
         let val = if is_macro {
             val.clone()
         } else {
-            eval(val, env)?
+            eval(val, old_env)?
         };
 
         new_env.borrow_mut().define(arg, val.clone());
@@ -203,7 +204,9 @@ fn setup_env(
         let rest = if is_macro {
             citer.into_cons_list().clone()
         } else {
-            citer.map(|val| eval(val, env)).collect::<Result<_, _>>()?
+            citer
+                .map(|val| eval(val, old_env))
+                .collect::<Result<_, _>>()?
         };
         new_env.borrow_mut().define(&fargs[varidx], rest);
     } else if citer.next().is_some() {

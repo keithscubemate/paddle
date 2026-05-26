@@ -61,7 +61,7 @@ fn higher_order_apply() {
     assert_eq!(
         eval_str_env(&[
             "(def (apply-fn f x) (f x))",
-            "(apply-fn (lambda (x) (* x x)) 4)"
+            "(apply-fn (lambda (y) (* y y)) 4)"
         ]),
         num(16.0)
     );
