@@ -178,7 +178,7 @@ fn eval_form(form: Form, tail: &Value, env: Rc<RefCell<Env>>) -> Result<Value> {
 
 fn setup_env(
     tail: &Value,
-    fargs: &Vec<String>,
+    fargs: &[String],
     is_macro: bool,
     old_env: Rc<RefCell<Env>>,
     new_env: Rc<RefCell<Env>>,
