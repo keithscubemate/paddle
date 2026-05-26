@@ -10,7 +10,7 @@ use crate::eval::{
     value::{Form, Value},
 };
 
-pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
+pub fn eval(ast: &Value, env: Rc<RefCell<Env>>) -> Result<Value> {
     let Value::Cons(pair) = ast else {
         return match ast {
             Value::Symbol(atom) => resolve(atom, env),
@@ -24,7 +24,7 @@ pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
             let mut body = pair.1.to_cons_iter().peekable();
 
             while let Some(b) = body.next() {
-                let val = eval(b, env)?;
+                let val = eval(b, env.clone())?;
 
                 if body.peek().is_none() {
                     return Ok(val);
@@ -35,7 +35,7 @@ pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
         }
         Value::Form(f) => eval_form(f, &pair.1, env),
         _ => {
-            let head = eval(&pair.0, env)?;
+            let head = eval(&pair.0, env.clone())?;
             let is_macro = matches!(head, Value::Macro { .. });
             let tail = &pair.1;
 
@@ -49,40 +49,44 @@ pub fn eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
                     name: _,
                     body,
                     args,
-                } => (body, args, env),
-                Value::Lambda { env, body, args } => (body, args, &env.clone()),
+                } => (body, args, env.clone()),
+                Value::Lambda { env, body, args } => (body, args, env.clone()),
                 Value::Builtin(f, _) => {
                     return f.0(&tail
                         .to_cons_iter()
-                        .map(|v| eval(v, env))
+                        .map(|v| eval(v, env.clone()))
                         .collect::<Result<_, _>>()?);
                 }
                 v => return Ok(v.clone()),
             };
 
-            let nenv = setup_env(tail, &args, is_macro, env, fenv)?;
+            let nenv = setup_env(tail, &args, is_macro, env.clone(), fenv)?;
 
-            let rv = eval(&body, &nenv);
+            let rv = eval(&body, nenv);
 
-            if is_macro { eval(&rv?, &env) } else { rv }
+            if is_macro {
+                eval(&rv?, env.clone())
+            } else {
+                rv
+            }
         }
     }
 }
 
-fn resolve(atom: &str, env: &Rc<RefCell<Env>>) -> Result<Value> {
+fn resolve(atom: &str, env: Rc<RefCell<Env>>) -> Result<Value> {
     env.borrow()
         .resolve(atom)
         .ok_or(EvalError::SymbolUndefined(atom.to_string()).into())
 }
 
-fn quasi_quote_eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
+fn quasi_quote_eval(ast: &Value, env: Rc<RefCell<Env>>) -> Result<Value> {
     match ast {
         Value::Cons(pair) => match pair.0 {
             Value::Nil => Ok(ast.clone()),
             Value::Form(Form::UnQuote) => eval(&pair.1, env),
             _ => {
-                let new_head = quasi_quote_eval(&pair.0, env)?;
-                let new_tail = quasi_quote_eval(&pair.1, env)?;
+                let new_head = quasi_quote_eval(&pair.0, env.clone())?;
+                let new_tail = quasi_quote_eval(&pair.1, env.clone())?;
 
                 Ok(Value::Cons(Rc::new((new_head, new_tail))))
             }
@@ -91,7 +95,7 @@ fn quasi_quote_eval(ast: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
     }
 }
 
-fn eval_form(form: Form, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> {
+fn eval_form(form: Form, tail: &Value, env: Rc<RefCell<Env>>) -> Result<Value> {
     match form {
         Form::Quote => {
             let Value::Cons(tailtail) = tail else {
@@ -130,7 +134,7 @@ fn eval_form(form: Form, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> 
             panic!("we shouldn't hit this");
         }
         Form::Eval => {
-            let val = eval(tail, env)?;
+            let val = eval(tail, env.clone())?;
             eval(&val, env)
         }
         Form::DefineMacro | Form::Define => {
@@ -149,12 +153,12 @@ fn eval_form(form: Form, tail: &Value, env: &Rc<RefCell<Env>>) -> Result<Value> 
                 return Err(EvalError::BadIfArgs.into());
             }
 
-            let cond = eval(cond, env)?;
+            let cond = eval(cond, env.clone())?;
 
             if cond.truthy() {
-                eval(t_branch, env)
+                eval(t_branch, env.clone())
             } else {
-                eval(f_branch, env)
+                eval(f_branch, env.clone())
             }
         }
         Form::Lambda => {
@@ -175,8 +179,8 @@ fn setup_env(
     tail: &Value,
     fargs: &Vec<String>,
     is_macro: bool,
-    old_env: &Rc<RefCell<Env>>,
-    new_env: &Rc<RefCell<Env>>,
+    old_env: Rc<RefCell<Env>>,
+    new_env: Rc<RefCell<Env>>,
 ) -> Result<Rc<RefCell<Env>>> {
     let new_env = Rc::new(RefCell::new(Env::new_child(new_env.clone())));
 
@@ -199,7 +203,7 @@ fn setup_env(
         let val = if is_macro {
             val.clone()
         } else {
-            eval(val, old_env)?
+            eval(val, old_env.clone())?
         };
 
         new_env.borrow_mut().define(arg, val.clone());
@@ -210,7 +214,7 @@ fn setup_env(
             citer.into_cons_list().clone()
         } else {
             citer
-                .map(|val| eval(val, old_env))
+                .map(|val| eval(val, old_env.clone()))
                 .collect::<Result<_, _>>()?
         };
         new_env.borrow_mut().define(&fargs[varidx], rest);
@@ -221,7 +225,7 @@ fn setup_env(
     Ok(new_env)
 }
 
-fn define(form: &Form, body: &Value, env: &Rc<RefCell<Env>>) -> Result<()> {
+fn define(form: &Form, body: &Value, env: Rc<RefCell<Env>>) -> Result<()> {
     let mut list = body.to_cons_iter();
     let head = list.next().ok_or(EvalError::BadDefineArgs)?;
 
@@ -232,7 +236,7 @@ fn define(form: &Form, body: &Value, env: &Rc<RefCell<Env>>) -> Result<()> {
             if list.next().is_some() {
                 return Err(EvalError::BadDefineArgs.into());
             }
-            let value = eval(tail, env)?;
+            let value = eval(tail, env.clone())?;
             env.borrow_mut().define(atom, value);
         }
         Value::Cons(_) => {
