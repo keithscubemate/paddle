@@ -33,14 +33,10 @@ fn classify(atom: &str) -> Value {
         "nil" => Value::Nil,
         "#t" => Value::Bool(true),
         "#f" => Value::Bool(false),
-        _ if atom.starts_with('"') && atom.ends_with('"') => Value::Str(
-            atom.strip_prefix("\"")
-                .unwrap()
-                .strip_suffix("\"")
-                .unwrap()
-                .to_owned(),
-        ),
-        _ => Value::Symbol(atom.to_owned()),
+        _ if atom.starts_with('"') && atom.ends_with('"') => Value::Str(Rc::from(
+            atom.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap(),
+        )),
+        _ => Value::Symbol(Rc::from(atom)),
     }
 }
 
@@ -68,7 +64,7 @@ mod tests {
     }
 
     fn sym(s: &str) -> Value {
-        Value::Symbol(s.to_owned())
+        Value::Symbol(Rc::from(s))
     }
 
     #[test]

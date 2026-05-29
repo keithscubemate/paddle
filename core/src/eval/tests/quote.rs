@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn quote_symbol() {
-    assert_eq!(eval_str("(quote x)"), Value::Symbol("x".to_owned()));
+    assert_eq!(eval_str("(quote x)"), Value::Symbol("x".into()));
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn quote_list() {
 fn quote_suppresses_eval() {
     assert_eq!(
         eval_str("(quote (+ 1 2))"),
-        Value::to_cons_list(vec![Value::Symbol("+".to_owned()), num(1.0), num(2.0),])
+        Value::to_cons_list(vec![Value::Symbol("+".into()), num(1.0), num(2.0),])
     );
 }
 

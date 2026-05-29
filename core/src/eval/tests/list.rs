@@ -51,10 +51,7 @@ fn cdr_of_list() {
 fn list_with_quoted_symbol() {
     assert_eq!(
         eval_str("(list 'a 'b)"),
-        Value::to_cons_list(vec![
-            Value::Symbol("a".to_owned()),
-            Value::Symbol("b".to_owned())
-        ])
+        Value::to_cons_list(vec![Value::Symbol("a".into()), Value::Symbol("b".into())])
     );
 }
 
@@ -84,6 +81,6 @@ fn list_of_lists() {
 fn quote_of_list_call_suppresses_eval() {
     assert_eq!(
         eval_str("'(list 1 2)"),
-        Value::to_cons_list(vec![Value::Symbol("list".to_owned()), num(1.0), num(2.0)])
+        Value::to_cons_list(vec![Value::Symbol("list".into()), num(1.0), num(2.0)])
     );
 }

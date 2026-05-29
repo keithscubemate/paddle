@@ -11,9 +11,9 @@ pub enum Value {
     Nil,
     Bool(bool),
     Num(f64),
-    Symbol(String),
+    Symbol(Rc<str>),
     Form(Form),
-    Str(String),
+    Str(Rc<str>),
     Cons(Rc<(Value, Value)>),
     Builtin(BuiltinFn, String),
     Macro {

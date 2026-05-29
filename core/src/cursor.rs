@@ -27,7 +27,7 @@ pub fn process(contents: &str, env: Rc<RefCell<Env>>) -> Result<Vec<Value>> {
         let (ast, rest) = parser::parse_expr(working)?;
         let expr = lower(&ast);
 
-        let val = eval(&expr, env.clone())?;
+        let val = eval(expr, env.clone())?;
 
         rv.push(val);
 
