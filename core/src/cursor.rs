@@ -4,51 +4,64 @@ use std::{cell::RefCell, fs::read_to_string, path::PathBuf, rc::Rc};
 
 use crate::{
     eval::{Env, eval, lower, value::Value},
-    lexer, parser,
+    lexer::{self, Token},
+    parser,
 };
+
+pub struct Cursor<'a> {
+    working: &'a [Token<'a>],
+    env: Rc<RefCell<Env>>,
+}
+
+impl<'a> Cursor<'a> {
+    pub fn new(working: &'a [Token<'a>], env: Rc<RefCell<Env>>) -> Self {
+        Self { working, env }
+    }
+}
+
+impl<'a> Iterator for Cursor<'a> {
+    type Item = Result<Value>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.working.is_empty() {
+            return None;
+        }
+
+        let parse_res = parser::parse_expr(self.working);
+
+        let Ok((ast, rest)) = parse_res else {
+            return Some(Err(parse_res.err().unwrap().into()));
+        };
+
+        self.working = rest;
+
+        let expr = lower(&ast);
+
+        let val = eval(expr, self.env.clone());
+
+        Some(val)
+    }
+}
 
 pub fn process_file(file_path: PathBuf, env: Rc<RefCell<Env>>) -> Result<Vec<Value>> {
     let contents = read_to_string(file_path)?;
-    process(&contents, env)
+    let lexed = lexer::lex(&contents);
+
+    let cursor = Cursor::new(&lexed, env);
+    cursor.collect()
 }
 
 pub fn process(contents: &str, env: Rc<RefCell<Env>>) -> Result<Vec<Value>> {
-    if contents.trim().is_empty() {
-        return Ok(vec![]);
-    }
+    let lexed = lexer::lex(&contents);
 
-    let tokens = lexer::lex(contents);
-
-    let mut working = &tokens[..];
-
-    let mut rv = vec![];
-
-    loop {
-        let (ast, rest) = parser::parse_expr(working)?;
-        let expr = lower(&ast);
-
-        let val = eval(expr, env.clone())?;
-
-        rv.push(val);
-
-        if rest.is_empty() {
-            break;
-        }
-
-        working = rest;
-    }
-
-    Ok(rv)
+    let cursor = Cursor::new(&lexed, env);
+    cursor.collect()
 }
 
-pub fn display_results(res: Result<Vec<Value>>) {
+pub fn display_result(res: Result<Value>) {
     match res {
         Err(err) => println!("ERROR: {:?}", err),
-        Ok(vals) => {
-            for val in vals {
-                println!("{}", val);
-            }
-        }
+        Ok(val) => println!("{}", val),
     }
 }
 
