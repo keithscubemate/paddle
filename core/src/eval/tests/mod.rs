@@ -12,6 +12,7 @@ mod lambda;
 mod list;
 mod macros;
 mod quote;
+mod tco;
 mod variadic;
 
 use std::cell::RefCell;
@@ -27,7 +28,7 @@ fn eval_str(s: &str) -> Value {
     let tokens = lex(s);
     let (expr, _) = parse_expr(&tokens).unwrap();
     let expr = lower(&expr);
-    eval(&expr, &Rc::new(RefCell::new(env))).unwrap()
+    eval(expr, Rc::new(RefCell::new(env))).unwrap()
 }
 
 fn eval_str_env(exprs: &[&str]) -> Value {
@@ -39,7 +40,7 @@ fn eval_str_env(exprs: &[&str]) -> Value {
         let tokens = lex(expr);
         let (e, _) = parse_expr(&tokens).unwrap();
         let e = lower(&e);
-        let val = eval(&e, &env);
+        let val = eval(e, env.clone());
         last = Some(val);
     }
 
@@ -51,7 +52,7 @@ fn num(n: f64) -> Value {
 }
 
 fn sym(s: &str) -> Value {
-    Value::Symbol(s.to_owned())
+    Value::Symbol(s.into())
 }
 
 fn cons(head: Value, tail: Value) -> Value {
@@ -63,7 +64,7 @@ fn eval_err(s: &str) -> anyhow::Error {
     let tokens = lex(s);
     let (expr, _) = parse_expr(&tokens).unwrap();
     let expr = lower(&expr);
-    eval(&expr, &Rc::new(RefCell::new(env))).unwrap_err()
+    eval(expr, Rc::new(RefCell::new(env))).unwrap_err()
 }
 
 fn eval_env_err(exprs: &[&str]) -> anyhow::Error {
@@ -72,7 +73,7 @@ fn eval_env_err(exprs: &[&str]) -> anyhow::Error {
         let tokens = lex(s);
         let (e, _) = parse_expr(&tokens).unwrap();
         let e = lower(&e);
-        if let Err(err) = eval(&e, &env) {
+        if let Err(err) = eval(e, env.clone()) {
             return err;
         }
     }

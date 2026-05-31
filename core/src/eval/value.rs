@@ -11,9 +11,9 @@ pub enum Value {
     Nil,
     Bool(bool),
     Num(f64),
-    Symbol(String),
+    Symbol(Rc<str>),
     Form(Form),
-    Str(String),
+    Str(Rc<str>),
     Cons(Rc<(Value, Value)>),
     Builtin(BuiltinFn, String),
     Macro {
@@ -25,6 +25,7 @@ pub enum Value {
         name: String,
         args: Vec<String>,
         body: Rc<Value>,
+        env: Rc<RefCell<Env>>,
     },
     Lambda {
         args: Vec<String>,
@@ -99,6 +100,7 @@ impl Display for Value {
                 name,
                 args,
                 body: _,
+                env: _,
             } => write!(f, "func: {} ({}) {{...}}", name, args.join(" ")),
             Value::Macro {
                 name,
@@ -136,12 +138,19 @@ impl Debug for Value {
                 .field("name", name)
                 .field("args", args)
                 .field("body", body)
+                .field("env", &"{...}")
                 .finish(),
-            Value::Func { name, args, body } => f
+            Value::Func {
+                name,
+                args,
+                body,
+                env: _,
+            } => f
                 .debug_struct("Func")
                 .field("name", name)
                 .field("args", args)
                 .field("body", body)
+                .field("env", &"{...}")
                 .finish(),
             Value::Lambda { args, body, env: _ } => f
                 .debug_struct("Lambda")

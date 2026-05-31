@@ -8,13 +8,17 @@ use crate::eval::value::{Builtin, BuiltinFn, Value};
 #[derive(Debug, PartialEq)]
 pub struct Env {
     env: HashMap<String, Value>,
+    builtin: Rc<HashMap<String, Value>>,
     parent: Option<Rc<RefCell<Self>>>,
 }
 
 impl Env {
     pub fn new_child(parent: Rc<RefCell<Self>>) -> Self {
+        let builtin = parent.borrow().builtin.clone();
+
         Self {
             env: HashMap::new(),
+            builtin,
             parent: Some(parent),
         }
     }
@@ -24,14 +28,34 @@ impl Env {
     }
 
     pub fn resolve(&self, name: &str) -> Option<Value> {
+        if let Some(val) = self.builtin.get(name) {
+            return Some(val.clone());
+        }
+
         if let Some(val) = self.env.get(name) {
             return Some(val.clone());
         }
 
-        match &self.parent {
-            None => None,
-            Some(penv) => penv.borrow().resolve(name),
+        let mut parent = self.parent.clone();
+        while let Some(penv) = parent {
+            if let Some(val) = penv.borrow().env.get(name) {
+                return Some(val.clone());
+            }
+            parent = penv.borrow().parent.clone();
         }
+
+        None
+    }
+
+    pub fn small_dump(&self) {
+        for (k, v) in self
+            .env
+            .iter()
+            .filter(|(_, v)| !matches!(v, Value::Builtin(..)))
+        {
+            println!("{}: {}", k, v)
+        }
+        println!();
     }
 
     pub fn dump(&self) {
@@ -90,7 +114,7 @@ impl Env {
 
 impl Default for Env {
     fn default() -> Self {
-        let mut env = HashMap::new();
+        let mut benv = HashMap::new();
 
         let bins: &[(&str, Builtin)] = &[
             ("+", add),
@@ -111,10 +135,14 @@ impl Default for Env {
         ];
 
         for (name, f) in bins {
-            env.insert(name.to_string(), tobi(*f, name));
+            benv.insert(name.to_string(), tobi(*f, name));
         }
 
-        Self { env, parent: None }
+        Self {
+            env: HashMap::new(),
+            builtin: Rc::new(benv),
+            parent: None,
+        }
     }
 }
 
