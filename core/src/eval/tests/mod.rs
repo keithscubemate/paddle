@@ -14,6 +14,7 @@ mod list;
 mod macros;
 mod predicates;
 mod quote;
+mod splice;
 mod tco;
 mod variadic;
 

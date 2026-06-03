@@ -88,20 +88,31 @@ fn resolve(atom: &str, env: Rc<RefCell<Env>>) -> Result<Value> {
         .ok_or(EvalError::SymbolUndefined(atom.to_string()).into())
 }
 
-fn quasi_quote_eval(ast: Value, env: Rc<RefCell<Env>>) -> Result<Value> {
+fn quasi_quote_eval(ast: Value, env: Rc<RefCell<Env>>) -> Result<(Value, bool)> {
     match ast {
         Value::Cons(ref pair) => match pair.0 {
             // TODO(ajone239): this can cause a weird bug between quote and quasi quote
-            Value::Nil => Ok(ast.clone()),
-            Value::Form(Form::UnQuote) => eval(pair.1.clone(), env),
+            Value::Nil => Ok((ast.clone(), false)),
+            Value::Form(Form::UnQuote) => {
+                let val = eval(pair.1.clone(), env)?;
+                Ok((val, false))
+            }
+            Value::Form(Form::UnQuoteSplicing) => {
+                let val = eval(pair.1.clone(), env)?;
+                Ok((val, true))
+            }
             _ => {
-                let new_head = quasi_quote_eval(pair.0.clone(), env.clone())?;
-                let new_tail = quasi_quote_eval(pair.1.clone(), env.clone())?;
+                let (new_head, head_spliced) = quasi_quote_eval(pair.0.clone(), env.clone())?;
+                let (new_tail, _) = quasi_quote_eval(pair.1.clone(), env.clone())?;
 
-                Ok(Value::Cons(Rc::new((new_head, new_tail))))
+                if !head_spliced {
+                    Ok((Value::Cons(Rc::new((new_head, new_tail))), false))
+                } else {
+                    Ok((new_head.splice(new_tail), false))
+                }
             }
         },
-        _ => Ok(ast.clone()),
+        _ => Ok((ast.clone(), false)),
     }
 }
 
@@ -117,10 +128,12 @@ fn eval_form(form: Form, tail: Value, env: Rc<RefCell<Env>>) -> Result<Trampolin
             let Value::Cons(tailtail) = tail else {
                 unreachable!("this is how quasiquote is formed")
             };
-            let qexpr = quasi_quote_eval(tailtail.0.clone(), env)?;
+            let (qexpr, _) = quasi_quote_eval(tailtail.0.clone(), env)?;
             Ok(Trampoline::Done(qexpr))
         }
         Form::UnQuote => Err(EvalError::UnquoteOutsideQuasi.into()),
+        // TODO(ajone239): update this error
+        Form::UnQuoteSplicing => Err(EvalError::UnquoteOutsideQuasi.into()),
         Form::Require => {
             let mut list = tail.to_cons_iter();
 

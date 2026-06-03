@@ -64,3 +64,17 @@
                  res
                  ,(for2 (cdr xs))))))
       (for2 iter))
+
+(defm (let pairs body...)
+      (define vars (map car pairs))
+      (define vals (map cadr pairs))
+      `((lambda ,vars @body...) @vals))
+
+(defm (let* pairs body...)
+      (define vars (map car pairs))
+      (define vals (map cadr pairs))
+      (define (let*2 vars vals)
+        (if (null? vars)
+          `(progn @body...)
+          `((lambda (,(car vars)) ,(let*2 (cdr vars) (cdr vals))) ,(car vals))))
+      (let*2 vars vals))

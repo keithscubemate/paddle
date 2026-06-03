@@ -62,6 +62,26 @@ impl Value {
     pub fn to_cons_iter(&self) -> ConsIter<'_> {
         ConsIter::new(self)
     }
+
+    pub fn splice(&self, other: Self) -> Self {
+        if matches!(self, Self::Nil) {
+            return other;
+        }
+        if !matches!(self, Self::Cons(_)) {
+            // TODO(austin.jones): make this a result
+            panic!("has to be a list")
+        }
+
+        let vals: Vec<&Value> = self.to_cons_iter().collect();
+
+        let mut rv = other;
+
+        for val in vals.into_iter().rev() {
+            rv = Self::Cons(Rc::new((val.clone(), rv)));
+        }
+
+        rv
+    }
 }
 
 impl Display for Value {
@@ -181,6 +201,7 @@ pub enum Form {
     Quote,
     QuasiQuote,
     UnQuote,
+    UnQuoteSplicing,
     Define,
     DefineMacro,
     Lambda,
@@ -197,6 +218,7 @@ impl Form {
             "progn" => Some(Self::Progn),
             "quote" | "'" => Some(Self::Quote),
             "quasiquote" | "`" => Some(Self::QuasiQuote),
+            "unquotesplicing" | "@" => Some(Self::UnQuoteSplicing),
             "unquote" | "," => Some(Self::UnQuote),
             "define" | "def" => Some(Self::Define),
             "defmacro" | "defm" => Some(Self::DefineMacro),
