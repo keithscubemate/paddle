@@ -74,7 +74,7 @@
       (define vars (map car pairs))
       (define vals (map cadr pairs))
       (define (let*2 vars vals)
-        (if (null? vars)
+        (if (|| (null? vars) (null? vals))
           `(progn @body...)
           `((lambda (,(car vars)) ,(let*2 (cdr vars) (cdr vals))) ,(car vals))))
       (let*2 vars vals))

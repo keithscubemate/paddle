@@ -337,7 +337,7 @@ fn and(args: &Value) -> Result<Value> {
 
 fn val_or(args: &Value) -> Result<Value> {
     let mut hold = args;
-    let mut pass = true;
+    let mut pass = false;
 
     while let Value::Cons(pair) = hold {
         pass |= pair.0.truthy();
