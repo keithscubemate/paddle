@@ -10,6 +10,7 @@ use crate::eval::env::Env;
 pub enum Value {
     Nil,
     Bool(bool),
+    Char(u8),
     Num(f64),
     Symbol(Rc<str>),
     Form(Form),
@@ -40,6 +41,7 @@ impl Value {
             Value::Nil => false,
             Value::Bool(val) => *val,
             Value::Num(num) => num.ne(&0.0),
+            Value::Char(byte) => *byte != 0,
             Value::Str(s) => !s.is_empty(),
             Value::Cons(_)
             | Value::Symbol(_)
@@ -90,9 +92,10 @@ impl Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Bool(b) => write!(f, "{}", if *b { "#t" } else { "#f" }),
             Value::Num(n) => write!(f, "{}", n),
+            Value::Char(b) => write!(f, "'{}'", char::from(*b)),
             Value::Symbol(s) => write!(f, ":{}", s),
             Value::Form(form) => write!(f, "{:?}", form),
-            Value::Str(s) => write!(f, "{}", s),
+            Value::Str(s) => write!(f, "\"{}\"", s),
             Value::Cons(pair) => {
                 let first = &pair.0;
                 let mut second = &pair.1;
@@ -148,6 +151,7 @@ impl Debug for Value {
             Value::Nil => write!(f, "Nil"),
             Value::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
             Value::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
+            Value::Char(arg0) => f.debug_tuple("Char").field(arg0).finish(),
             Value::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
             Value::Form(arg0) => f.debug_tuple("Form").field(arg0).finish(),
             Value::Str(arg0) => f.debug_tuple("Str").field(arg0).finish(),

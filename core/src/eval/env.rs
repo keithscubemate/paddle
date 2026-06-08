@@ -1,6 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    io::{self, Read},
+    rc::Rc,
+};
 
-use anyhow::{Context, Ok, Result, bail};
+use anyhow::{Context, Result, bail};
 use thiserror::Error;
 
 use crate::{
@@ -151,6 +156,8 @@ impl Default for Env {
             ("number?", is_number),
             ("null?", is_null),
             ("pair?", is_pair),
+            ("getchar", getchar),
+            ("getline", getline),
         ];
 
         for (name, f) in bins {
@@ -545,5 +552,26 @@ fn is_pair(args: &Value) -> Result<Value> {
     match args.0 {
         Value::Cons(_) => Ok(Value::Bool(true)),
         _ => Ok(Value::Bool(false)),
+    }
+}
+
+fn getchar(_args: &Value) -> Result<Value> {
+    let mut buf = [0u8; 1];
+
+    let res = io::stdin().read_exact(&mut buf);
+
+    match res {
+        Ok(_) => Ok(Value::Char(buf[0])),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn getline(_args: &Value) -> Result<Value> {
+    let mut buf = String::new();
+    let res = io::stdin().read_line(&mut buf);
+
+    match res {
+        Ok(_) => Ok(Value::Str(buf.trim().into())),
+        Err(err) => Err(err.into()),
     }
 }

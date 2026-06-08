@@ -36,7 +36,7 @@ model.
         * [ ] `string->list`
         * [ ] `list->string`
         * [ ] `string=?`
-    + [ ] `getchar` builtin
+    + [x] `getchar` builtin
     + [ ] `read-line` in Paddle
 - [ ] M3 — goalpost programs
     + [ ] `paddle.pd` — meta-circular evaluator
