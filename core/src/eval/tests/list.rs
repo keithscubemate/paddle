@@ -84,3 +84,62 @@ fn quote_of_list_call_suppresses_eval() {
         Value::to_cons_list(vec![Value::Symbol("list".into()), num(1.0), num(2.0)])
     );
 }
+
+// append
+
+#[test]
+fn append_two_lists() {
+    assert_eq!(
+        eval_str("(append '(1 2) '(3 4))"),
+        Value::to_cons_list(vec![num(1.0), num(2.0), num(3.0), num(4.0)])
+    );
+}
+
+#[test]
+fn append_first_empty() {
+    assert_eq!(
+        eval_str("(append nil '(1 2))"),
+        Value::to_cons_list(vec![num(1.0), num(2.0)])
+    );
+}
+
+#[test]
+fn append_second_empty() {
+    assert_eq!(
+        eval_str("(append '(1 2) nil)"),
+        Value::to_cons_list(vec![num(1.0), num(2.0)])
+    );
+}
+
+#[test]
+fn append_both_empty() {
+    assert_eq!(eval_str("(append nil nil)"), Value::Nil);
+}
+
+#[test]
+fn append_does_not_mutate_first_list() {
+    assert_eq!(
+        eval_str_env(&["(def xs '(1 2))", "(append xs '(3 4))", "xs"]),
+        Value::to_cons_list(vec![num(1.0), num(2.0)])
+    );
+}
+
+#[test]
+fn append_second_arg_need_not_be_a_list() {
+    // append only requires the first arg to be a proper list - the second
+    // becomes the new tail as-is, so this produces an improper list.
+    assert_eq!(
+        eval_str("(append '(1 2) 3)"),
+        cons(num(1.0), cons(num(2.0), num(3.0)))
+    );
+}
+
+#[test]
+fn append_too_few_args_errors() {
+    eval_err("(append '(1 2))");
+}
+
+#[test]
+fn append_first_arg_not_a_list_errors() {
+    eval_err("(append 1 '(2 3))");
+}

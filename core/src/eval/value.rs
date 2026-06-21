@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 
 use crate::eval::env::Env;
 
@@ -65,13 +65,12 @@ impl Value {
         ConsIter::new(self)
     }
 
-    pub fn splice(&self, other: Self) -> Self {
+    pub fn splice(&self, other: Self) -> Result<Self> {
         if matches!(self, Self::Nil) {
-            return other;
+            return Ok(other);
         }
         if !matches!(self, Self::Cons(_)) {
-            // TODO(austin.jones): make this a result
-            panic!("has to be a list")
+            bail!("has to be a list")
         }
 
         let vals: Vec<&Value> = self.to_cons_iter().collect();
@@ -82,7 +81,7 @@ impl Value {
             rv = Self::Cons(Rc::new((val.clone(), rv)));
         }
 
-        rv
+        Ok(rv)
     }
 }
 

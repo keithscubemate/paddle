@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::eval::{env::BuiltinError, value::Value};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
 pub fn cons(args: &Value) -> Result<Value> {
     let Value::Cons(args) = args else {
@@ -61,4 +61,13 @@ pub fn cdr(args: &Value) -> Result<Value> {
 
 pub fn list(args: &Value) -> Result<Value> {
     Ok(args.clone())
+}
+
+pub fn append(args: &Value) -> Result<Value> {
+    let mut aiter = args.to_cons_iter();
+
+    let sarg = aiter.next().context("must have 2 args")?;
+    let oarg = aiter.next().context("must have 2 args")?;
+
+    sarg.splice(oarg.clone())
 }

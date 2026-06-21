@@ -40,7 +40,7 @@ impl Default for Env {
             ("car", builtins::list::car),
             ("cdr", builtins::list::cdr),
             ("list", builtins::list::list),
-            // ("append", builtins::list::append),
+            ("append", builtins::list::append),
             ("atom?", builtins::predicate::is_atom),
             ("number?", builtins::predicate::is_number),
             ("symbol?", builtins::predicate::is_symbol),

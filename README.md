@@ -37,7 +37,7 @@ model.
         * [x] `string->num`
         * [x] `list->string`
         * [x] `string=?`
-        * [ ] `append`
+        * [x] `append`
     + [x] `getchar` builtin
     + [x] `read-line` in Paddle
 - [ ] M3 — goalpost programs

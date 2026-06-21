@@ -98,9 +98,9 @@ pub fn string_list(args: &Value) -> Result<Value> {
     }
 
     match &pair.0 {
-        Value::Str(s) | Value::Symbol(s) => Ok(Value::to_cons_list(
-            s.bytes().map(Value::Char).collect(),
-        )),
+        Value::Str(s) | Value::Symbol(s) => {
+            Ok(Value::to_cons_list(s.bytes().map(Value::Char).collect()))
+        }
         _ => bail!("only strs for string->list"),
     }
 }

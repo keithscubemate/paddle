@@ -108,7 +108,7 @@ fn quasi_quote_eval(ast: Value, env: Rc<RefCell<Env>>) -> Result<(Value, bool)> 
                 if !head_spliced {
                     Ok((Value::Cons(Rc::new((new_head, new_tail))), false))
                 } else {
-                    Ok((new_head.splice(new_tail), false))
+                    Ok((new_head.splice(new_tail)?, false))
                 }
             }
         },
