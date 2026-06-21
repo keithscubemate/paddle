@@ -52,7 +52,7 @@ pub fn process_file(file_path: PathBuf, env: Rc<RefCell<Env>>) -> Result<Vec<Val
 }
 
 pub fn process(contents: &str, env: Rc<RefCell<Env>>) -> Result<Vec<Value>> {
-    let lexed = lexer::lex(&contents);
+    let lexed = lexer::lex(contents);
 
     let cursor = Cursor::new(&lexed, env);
     cursor.collect()
