@@ -81,6 +81,9 @@
 (define (get-col b i)
   (map (lambda (r) (get-n r i)) (get-rows b)))
 
+(define (check-col b i)
+  (check-set (get-col b i)))
+
 (define (check-cols b)
   (map (lambda (i) (check-set (get-col b i))) (seq 8)))
 

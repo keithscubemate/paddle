@@ -1,16 +1,14 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    io::{self, ErrorKind, Read},
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use anyhow::{Context, Result, bail};
 use thiserror::Error;
 
 use crate::{
     cursor::process,
-    eval::value::{Builtin, BuiltinFn, Value},
+    eval::{
+        builtins,
+        value::{Builtin, BuiltinFn, Value},
+    },
 };
 
 static STD_LIB: &str = include_str!("../../../examples/base.pd");
@@ -21,6 +19,62 @@ pub struct Env {
     env: HashMap<String, Value>,
     builtin: Rc<HashMap<String, Value>>,
     parent: Option<Rc<RefCell<Self>>>,
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        let mut benv = HashMap::new();
+
+        let bins: &[(&str, Builtin)] = &[
+            ("+", builtins::math::add),
+            ("*", builtins::math::mul),
+            ("-", builtins::math::min),
+            ("/", builtins::math::div),
+            ("<", builtins::math::lt),
+            ("%", builtins::math::modulo),
+            ("=", builtins::boolean::eq),
+            ("&&", builtins::boolean::and),
+            ("||", builtins::boolean::val_or),
+            ("not", builtins::boolean::not),
+            ("cons", builtins::list::cons),
+            ("car", builtins::list::car),
+            ("cdr", builtins::list::cdr),
+            ("list", builtins::list::list),
+            // ("append", builtins::list::append),
+            ("atom?", builtins::predicate::is_atom),
+            ("number?", builtins::predicate::is_number),
+            ("symbol?", builtins::predicate::is_symbol),
+            ("string?", builtins::predicate::is_string),
+            ("char?", builtins::predicate::is_char),
+            ("null?", builtins::predicate::is_null),
+            ("pair?", builtins::predicate::is_pair),
+            ("print", builtins::inandout::print),
+            ("getchar", builtins::inandout::getchar),
+            ("getline", builtins::inandout::getline),
+            ("char", builtins::string::make_char),
+            ("string-length", builtins::string::string_length),
+            ("string-ref", builtins::string::string_ref),
+            ("substring", builtins::string::substring),
+            ("string-append", builtins::string::string_append),
+            ("string->list", builtins::string::string_list),
+            ("string->num", builtins::string::string_num),
+            ("list->string", builtins::string::list_string),
+        ];
+
+        for (name, f) in bins {
+            benv.insert(name.to_string(), tobi(*f, name));
+        }
+
+        Self {
+            env: HashMap::new(),
+            builtin: Rc::new(benv),
+            parent: None,
+        }
+    }
+}
+
+fn tobi(f: Builtin, name: &str) -> Value {
+    Value::Builtin(BuiltinFn(f), name.to_owned())
 }
 
 impl Env {
@@ -154,50 +208,6 @@ impl Env {
     }
 }
 
-impl Default for Env {
-    fn default() -> Self {
-        let mut benv = HashMap::new();
-
-        let bins: &[(&str, Builtin)] = &[
-            ("+", add),
-            ("*", mul),
-            ("-", min),
-            ("/", div),
-            ("=", eq),
-            ("<", lt),
-            ("%", modulo),
-            ("&&", and),
-            ("||", val_or),
-            ("not", not),
-            ("cons", cons),
-            ("car", car),
-            ("cdr", cdr),
-            ("list", list),
-            ("print", print),
-            ("atom?", is_atom),
-            ("number?", is_number),
-            ("symbol?", is_symbol),
-            ("string?", is_string),
-            ("char?", is_char),
-            ("char", make_char),
-            ("null?", is_null),
-            ("pair?", is_pair),
-            ("getchar", getchar),
-            ("getline", getline),
-        ];
-
-        for (name, f) in bins {
-            benv.insert(name.to_string(), tobi(*f, name));
-        }
-
-        Self {
-            env: HashMap::new(),
-            builtin: Rc::new(benv),
-            parent: None,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Error)]
 pub enum BuiltinError {
     #[error("Not: Expected 1 argument.")]
@@ -230,455 +240,4 @@ pub enum BuiltinError {
     BadModArgCount,
     #[error("Eq: Expected 2 arguments")]
     BadEqArgCount,
-}
-
-fn tobi(f: Builtin, name: &str) -> Value {
-    Value::Builtin(BuiltinFn(f), name.to_owned())
-}
-
-fn add(args: &Value) -> Result<Value> {
-    if !matches!(args, Value::Cons(_) | Value::Nil) {
-        bail!("should give me a list");
-    }
-
-    let mut num = 0.0;
-
-    let mut hold = args;
-
-    while let Value::Cons(pair) = hold {
-        match pair.0 {
-            Value::Num(val) => {
-                num += val;
-            }
-            Value::Nil => break,
-            _ => return Err(BuiltinError::ExpectedNumArg.into()),
-        }
-        hold = &pair.1;
-    }
-
-    Ok(Value::Num(num))
-}
-
-fn min(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        return Err(BuiltinError::NoInitforMinus.into());
-    };
-
-    let mut num = match pair.0 {
-        Value::Num(num) => num,
-        Value::Nil => {
-            return Err(BuiltinError::NoInitforMinus.into());
-        }
-        _ => {
-            return Err(BuiltinError::ExpectedNumArg.into());
-        }
-    };
-
-    let mut hold = &pair.1;
-
-    while let Value::Cons(pair) = hold {
-        match pair.0 {
-            Value::Num(val) => {
-                num -= val;
-            }
-            Value::Nil => break,
-            _ => return Err(BuiltinError::ExpectedNumArg.into()),
-        }
-        hold = &pair.1;
-    }
-
-    Ok(Value::Num(num))
-}
-
-fn mul(args: &Value) -> Result<Value> {
-    if !matches!(args, Value::Cons(_) | Value::Nil) {
-        return Err(BuiltinError::NoInitforDiv.into());
-    }
-
-    let mut num = 1.0;
-
-    let mut hold = args;
-
-    while let Value::Cons(pair) = hold {
-        match pair.0 {
-            Value::Num(val) => {
-                num *= val;
-            }
-            Value::Nil => break,
-            _ => return Err(BuiltinError::ExpectedNumArg.into()),
-        }
-        hold = &pair.1;
-    }
-
-    Ok(Value::Num(num))
-}
-
-fn div(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        return Err(BuiltinError::NoInitforDiv.into());
-    };
-
-    let mut num = match pair.0 {
-        Value::Num(num) => num,
-        Value::Nil => {
-            return Err(BuiltinError::NoInitforDiv.into());
-        }
-        _ => {
-            return Err(BuiltinError::ExpectedNumArg.into());
-        }
-    };
-    let mut hold = &pair.1;
-
-    while let Value::Cons(pair) = hold {
-        match pair.0 {
-            Value::Num(val) => {
-                num /= val;
-            }
-            Value::Nil => break,
-            _ => return Err(BuiltinError::ExpectedNumArg.into()),
-        }
-        hold = &pair.1;
-    }
-
-    Ok(Value::Num(num))
-}
-
-fn lt(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        return Err(BuiltinError::BadLtArgTypes.into());
-    };
-
-    let Value::Num(mut num) = pair.0 else {
-        return Err(BuiltinError::ExpectedNumArg.into());
-    };
-    let mut hold = &pair.1;
-    let mut pass = true;
-
-    while let Value::Cons(pair) = hold {
-        match pair.0 {
-            Value::Num(val) => {
-                pass &= num < val;
-                num = val
-            }
-            Value::Nil => break,
-            _ => return Err(BuiltinError::ExpectedNumArg.into()),
-        }
-        hold = &pair.1;
-    }
-
-    Ok(Value::Bool(pass))
-}
-
-fn and(args: &Value) -> Result<Value> {
-    let mut hold = args;
-    let mut pass = true;
-
-    while let Value::Cons(pair) = hold {
-        pass &= pair.0.truthy();
-        hold = &pair.1;
-    }
-
-    Ok(Value::Bool(pass))
-}
-
-fn val_or(args: &Value) -> Result<Value> {
-    let mut hold = args;
-    let mut pass = false;
-
-    while let Value::Cons(pair) = hold {
-        pass |= pair.0.truthy();
-        hold = &pair.1;
-    }
-
-    Ok(Value::Bool(pass))
-}
-
-fn eq(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        bail!("should give me a list");
-    };
-
-    let Value::Cons(pair2) = &pair.1 else {
-        bail!("should give me a list");
-    };
-
-    if let Value::Cons(_) = pair2.1 {
-        return Err(BuiltinError::BadEqArgCount.into());
-    }
-
-    match (&pair.0, &pair2.0) {
-        (Value::Num(last), Value::Num(penu)) => Ok(Value::Bool(penu == last)),
-        (Value::Nil, Value::Nil) => Ok(Value::Bool(true)),
-        (_, Value::Nil) | (Value::Nil, _) => Ok(Value::Bool(false)),
-        (Value::Char(last), Value::Char(penu)) => Ok(Value::Bool(penu == last)),
-        (Value::Char(byte), Value::Str(s))
-        | (Value::Char(byte), Value::Symbol(s))
-        | (Value::Str(s), Value::Char(byte))
-        | (Value::Symbol(s), Value::Char(byte)) => {
-            if s.len() != 1 {
-                return Ok(Value::Bool(false));
-            }
-
-            let s = s.bytes().next().unwrap();
-            Ok(Value::Bool(s == *byte))
-        }
-        (Value::Str(last), Value::Str(penu))
-        | (Value::Symbol(last), Value::Str(penu))
-        | (Value::Str(last), Value::Symbol(penu))
-        | (Value::Symbol(last), Value::Symbol(penu)) => Ok(Value::Bool(penu == last)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn modulo(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        bail!("should give me a list");
-    };
-
-    let Value::Cons(pair2) = &pair.1 else {
-        bail!("should give me a list");
-    };
-
-    if let Value::Cons(_) = pair2.1 {
-        return Err(BuiltinError::BadModArgCount.into());
-    }
-
-    match (&pair2.0, &pair.0) {
-        (Value::Num(last), Value::Num(penu)) => Ok(Value::Num(penu % last)),
-        _ => Err(BuiltinError::BadModArgTypes.into()),
-    }
-}
-
-fn not(args: &Value) -> Result<Value> {
-    let Value::Cons(pair) = args else {
-        bail!("should give me a list");
-    };
-
-    if let Value::Cons(_) = pair.1 {
-        return Err(BuiltinError::WrongNotArgCount.into());
-    }
-
-    Ok(Value::Bool(!pair.0.truthy()))
-}
-
-fn cons(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        return Err(BuiltinError::WrongConsArgCount.into());
-    };
-
-    let head = &args.0;
-
-    let Value::Cons(tail_pair) = &args.1 else {
-        return Err(BuiltinError::WrongConsArgCount.into());
-    };
-
-    if let Value::Cons(_) = tail_pair.1 {
-        return Err(BuiltinError::WrongConsArgCount.into());
-    }
-
-    let tail = &tail_pair.0;
-
-    Ok(Value::Cons(Rc::new((head.clone(), tail.clone()))))
-}
-
-fn car(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me a list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        return Err(BuiltinError::WrongCarArgCount.into());
-    };
-
-    let pair = match &args.0 {
-        Value::Nil => return Err(BuiltinError::CarOnEmptyList.into()),
-        Value::Cons(pair) => pair,
-        _ => return Err(BuiltinError::WrongCarArgType.into()),
-    };
-
-    Ok(pair.0.clone())
-}
-
-fn cdr(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me a list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        return Err(BuiltinError::WrongCdrArgCount.into());
-    };
-
-    let pair = match &args.0 {
-        Value::Nil => return Err(BuiltinError::CdrOnEmptyList.into()),
-        Value::Cons(pair) => pair,
-        _ => return Err(BuiltinError::WrongCdrArgType.into()),
-    };
-
-    Ok(pair.1.clone())
-}
-
-fn list(args: &Value) -> Result<Value> {
-    Ok(args.clone())
-}
-
-fn print(args: &Value) -> Result<Value> {
-    let out = args
-        .to_cons_iter()
-        .map(|a| a.to_string())
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    println!("{}", out);
-
-    Ok(Value::Nil)
-}
-
-fn is_number(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Num(_) => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn is_symbol(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Symbol(_) => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn is_char(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Char(_) => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn is_string(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Str(_) => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn is_atom(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Cons(_) => Ok(Value::Bool(false)),
-        _ => Ok(Value::Bool(true)),
-    }
-}
-
-fn is_null(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match &args.0 {
-        Value::Nil => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn is_pair(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    match args.0 {
-        Value::Cons(_) => Ok(Value::Bool(true)),
-        _ => Ok(Value::Bool(false)),
-    }
-}
-
-fn getchar(_args: &Value) -> Result<Value> {
-    let mut buf = [0u8; 1];
-
-    let res = io::stdin().read_exact(&mut buf);
-
-    match res {
-        Ok(_) => Ok(Value::Char(buf[0])),
-        Err(err) if err.kind() == ErrorKind::UnexpectedEof => Ok(Value::Cons(Rc::new((
-            Value::Symbol("err".into()),
-            Value::Str("EOF".into()),
-        )))),
-        Err(err) => Err(err.into()),
-    }
-}
-
-fn make_char(args: &Value) -> Result<Value> {
-    let Value::Cons(args) = args else {
-        bail!("should give me an arg list");
-    };
-
-    if let Value::Cons(_) = &args.1 {
-        bail!("only one arg");
-    };
-
-    let byte = match args.0 {
-        Value::Symbol(ref args) | Value::Str(ref args) if args.len() == 1 => {
-            args.bytes().next().unwrap()
-        }
-        Value::Num(byte) if byte >= 0.0 && byte < 256.0 => byte as u8,
-        _ => bail!("char takes num, sym, or str"),
-    };
-
-    Ok(Value::Char(byte))
-}
-
-fn getline(_args: &Value) -> Result<Value> {
-    let mut buf = String::new();
-    let res = io::stdin().read_line(&mut buf);
-
-    match res {
-        Ok(_) => Ok(Value::Str(buf.trim().into())),
-        Err(err) => Err(err.into()),
-    }
 }

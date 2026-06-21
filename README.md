@@ -29,15 +29,15 @@ model.
     + [x] `let <name>`
     + [x] error/condition system usable from Paddle
     + [ ] string builtins
-        * [ ] `string-length`
-        * [ ] `string-ref`
-        * [ ] `substring`
-        * [ ] `string-append`
-        * [ ] `string->list`
-        * [ ] `string->num`
-        * [ ] `char->num`
-        * [ ] `list->string`
-        * [ ] `string=?`
+        * [x] `string-length`
+        * [x] `string-ref`
+        * [x] `substring`
+        * [x] `string-append`
+        * [x] `string->list`
+        * [x] `string->num`
+        * [x] `list->string`
+        * [x] `string=?`
+        * [ ] `append`
     + [x] `getchar` builtin
     + [x] `read-line` in Paddle
 - [ ] M3 — goalpost programs
@@ -45,10 +45,11 @@ model.
     + [ ] `forth.pd` — Forth interpreter in Paddle
     + [ ] AoC days in Paddle
 - [ ] M4 -- onwards
-    + [ ] bust up the built-ins
+    + [x] bust up the built-ins
     + [ ] blend result macros and value.rs
     + [ ] `if __name__ == '__main__': <code>`
     + [ ] path based imports
+    + [ ] fix env leak for functions
 
 Out of scope: bytecode VM, lexer iterator, AST arena.
 
