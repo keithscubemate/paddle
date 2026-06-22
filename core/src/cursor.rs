@@ -33,11 +33,14 @@ impl<'a> Iterator for Cursor<'a> {
             return Some(Err(parse_res.err().unwrap().into()));
         };
 
+        let start_span = self.working[0].span;
         self.working = rest;
 
         let expr = lower(&ast);
 
-        let val = eval(expr, self.env.clone());
+        // TODO(ajone239): make this error on the proper token
+        let val = eval(expr, self.env.clone())
+            .map_err(|e| e.context(format!("at {}:{}", start_span.line, start_span.column)));
 
         Some(val)
     }
