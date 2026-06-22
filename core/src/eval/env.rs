@@ -30,6 +30,7 @@ impl Default for Env {
             ("*", builtins::math::mul),
             ("-", builtins::math::min),
             ("/", builtins::math::div),
+            ("//", builtins::math::intdiv),
             ("<", builtins::math::lt),
             ("%", builtins::math::modulo),
             ("=", builtins::boolean::eq),

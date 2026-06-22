@@ -109,6 +109,37 @@ pub fn div(args: &Value) -> Result<Value> {
     Ok(Value::Num(num))
 }
 
+pub fn intdiv(args: &Value) -> Result<Value> {
+    let Value::Cons(pair) = args else {
+        return Err(BuiltinError::NoInitforDiv.into());
+    };
+
+    let mut num = match pair.0 {
+        Value::Num(num) => num,
+        Value::Nil => {
+            return Err(BuiltinError::NoInitforDiv.into());
+        }
+        _ => {
+            return Err(BuiltinError::ExpectedNumArg.into());
+        }
+    };
+    let mut hold = &pair.1;
+
+    while let Value::Cons(pair) = hold {
+        match pair.0 {
+            Value::Num(val) => {
+                let new_num = num.div_euclid(val);
+                num = new_num;
+            }
+            Value::Nil => break,
+            _ => return Err(BuiltinError::ExpectedNumArg.into()),
+        }
+        hold = &pair.1;
+    }
+
+    Ok(Value::Num(num))
+}
+
 pub fn lt(args: &Value) -> Result<Value> {
     let Value::Cons(pair) = args else {
         return Err(BuiltinError::BadLtArgTypes.into());
