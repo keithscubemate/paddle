@@ -47,6 +47,13 @@ pub fn lex<'a>(code: &'a str) -> Vec<Token<'a>> {
         }
 
         let (buf_end, next_kind) = match c {
+            '\n' => {
+                line += 1;
+                column = 0;
+                comment = false;
+                (offset, None)
+            }
+            _ if comment => (offset, None),
             '"' => {
                 if !building_string {
                     building_string = true;
@@ -60,13 +67,6 @@ pub fn lex<'a>(code: &'a str) -> Vec<Token<'a>> {
                 continue;
             }
             _ if building_string => continue,
-            '\n' => {
-                line += 1;
-                column = 0;
-                comment = false;
-                (offset, None)
-            }
-            _ if comment => (offset, None),
             '(' => (offset, Some(TokenKind::LeftParen)),
             ')' => (offset, Some(TokenKind::RightParen)),
             '\'' => (offset, Some(TokenKind::Quote)),
