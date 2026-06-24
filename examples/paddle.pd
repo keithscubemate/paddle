@@ -1,0 +1,117 @@
+(define (paddle exp)
+  (cond
+    ((pair? exp) (apply exp))
+    ((number? exp) exp)
+    ((symbol? exp) (env-get my-env exp))
+    (else (err "only nums and symbols supported rn"))))
+
+
+(define (apply exp)
+  (when (not (null? exp))
+    (let ((op (car exp))
+          (args (cdr exp)))
+      (cond
+        ((bi? op) (apply-bi op (map paddle args)))
+        ((form? op) (apply-form op args))
+        (else
+          (progn
+            (print 'fail op args)
+            (err "unsupported apply")))))))
+(define (bi? op)
+  (|| (= '+ op)
+      (= '* op)
+      (= '- op)
+      (= '/ op)
+      (= '= op)
+      (= '> op)))
+
+(define (apply-bi op args)
+  (cond
+    ((= '+ op) (foldl + 0 args))
+    ((= '* op) (foldl * 1 args))
+    ((= '- op) (- (car args) (cadr args)))
+    ((= '/ op) (/ (car args) (cadr args)))
+    ((= '= op) (= (car args) (cadr args)))
+    ((= '> op) (> (car args) (cadr args)))
+    (else (err "unsupported bi"))))
+
+; p(addle) prepended to builtins to get around the parser
+(define (form? op)
+  (|| (= 'pquote op)
+      (= 'pif op)
+      (= 'plam op)
+      (= 'pbegin op)
+      (= 'pdef op)))
+
+(define (apply-form op args)
+  (cond
+    ((= 'pquote op) (car args))
+    ((= 'plam op) (lam (car args) (cadr args)))
+    ((= 'pbegin op)
+     (letn loop ((prog args))
+           (cond
+             ((null? prog) '())
+             ((= 1 (len prog)) (paddle (car prog)))
+             (else
+               (progn
+                 (paddle (car prog))
+                 (loop (cdr prog)))))))
+    ((= 'pif op)
+     (let ((condish (car args))
+           (tbranch (cadr args))
+           (fbranch (caddr args)))
+       (if (paddle condish)
+         (paddle tbranch)
+         (paddle fbranch))))
+    ((= 'pdef op)
+     (env-set! my-env ((car args)) (paddle (cadr args))))
+    (else (error "unsupported form"))))
+
+
+;; Env
+
+(define (entry key val) (list key val))
+(define (entry-key entry) (car entry))
+(define (entry-val entry) (cadr entry))
+
+(define (env-contains env key)
+  (letn loop ((env env))
+        (cond
+          ((null? env) #f)
+          ((= key (entry-key (car env))) #t)
+          (else (loop (cdr env))))))
+
+(define (env-set env key val)
+  (cons (entry key val) env))
+
+(defm (env-set! env key val)
+      `(set! ,env (env-set ,env ,key ,val)))
+
+(define (env-get env key)
+  (letn loop ((env env))
+        (cond
+          ((null? env) (err (string-append "'" key "' not found")))
+          ((= key (entry-key (car env))) (entry-val (car env)))
+          (else (loop (cdr env))))))
+
+;; Lambda
+
+(define (lam args body) (list 'lam args body))
+(define (lam? obj) (= 'lam (car obj)))
+(define (lam-args lam) (cadr lam))
+(define (lam-body lam) (caddr lam))
+
+;; Run it
+
+(def my-env '())
+
+(def program
+     '(pbegin
+        (pdef three (/ 27 9))
+        (pdef four (+ 2 2))
+        (* three four)))
+
+
+(paddle program)
+(paddle '(+ 1 (* 2 (- 10 (/ 6 2)))))
+; (paddle '((plam (x) (+ x x)) 2))
