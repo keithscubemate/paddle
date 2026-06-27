@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, rc::Rc};
 
 use anyhow::{Context, Result, bail};
 
@@ -115,12 +115,17 @@ pub fn string_num(args: &Value) -> Result<Value> {
         bail!("only one arg");
     }
 
-    match &pair.0 {
-        Value::Str(s) | Value::Symbol(s) => {
-            let val = s.parse()?;
-            Ok(Value::Num(val))
-        }
-        _ => bail!("only strs for string->list"),
+    let s = match &pair.0 {
+        Value::Str(s) | Value::Symbol(s) => s,
+        _ => bail!("only strs for string->num"),
+    };
+
+    match s.parse() {
+        Ok(val) => Ok(Value::Num(val)),
+        Err(_) => Ok(Value::Cons(Rc::new((
+            Value::Symbol("err".into()),
+            Value::Str("badparse".into()),
+        )))),
     }
 }
 
