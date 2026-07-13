@@ -349,10 +349,11 @@ fn make_callable(form: &Form, body: &Value) -> Result<CallableInfo> {
         return Err(EvalError::BadCallableBodyArgs(*form).into());
     }
 
-    let body = Rc::new(Value::Cons(Rc::new((
-        Value::Form(Form::Progn),
-        list.into_cons_list().clone(),
-    ))));
+    let fn_body = list.into_cons_list().clone();
+
+    println!("{}", fn_body);
+
+    let body = Rc::new(Value::Cons(Rc::new((Value::Form(Form::Progn), fn_body))));
 
     Ok((name, args, body))
 }
