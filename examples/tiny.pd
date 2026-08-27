@@ -1,0 +1,23 @@
+(defm (. name val)
+    `(def ,name ,val))
+
+(defm (? cond tb fb)
+    `(if (,cond) ,tb ,fb))
+
+(def :? pair?)
+(def :> cdr)
+(def <: car)
+(def :: list)
+(def : cons)
+
+(def (sx x) (.\ (n) (- n x)))
+(def s1 (sx 1))
+(def s2 (sx 2))
+(def s3 (sx 3))
+(def s10 (sx 10))
+
+(def (ax x) (.\ (n) (+ n x)))
+(def a1 (ax 1))
+(def a2 (ax 2))
+(def a3 (ax 3))
+(def a10 (ax 10))
