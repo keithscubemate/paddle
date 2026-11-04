@@ -1,7 +1,7 @@
 mod form;
 mod quasi;
 
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context, Ok, Result, bail};
 use thiserror::Error;
 
 use std::cell::RefCell;
@@ -116,7 +116,18 @@ fn eval_step(ast: Value, env: Rc<RefCell<Env>>) -> Result<Trampoline> {
             let fenv = if is_macro {
                 env.clone()
             } else {
-                info.env.clone()
+                let nenv = info.env.upgrade();
+
+                if nenv.is_none() {
+                    bail!(
+                        "env reference stale for [{}] in {} at {}",
+                        pair.0.clone(),
+                        cons_span,
+                        fspan
+                    );
+                }
+
+                nenv.unwrap()
             };
 
             let nenv = setup_env(tail, cons_span, &info.args, is_macro, env.clone(), fenv)?;
