@@ -132,10 +132,10 @@ pub(super) fn eval_form(
             let info = CallableInfo {
                 args,
                 body,
-                env: env.clone(),
+                env: Rc::downgrade(&env),
             };
 
-            let lambda = Value::Func(Rc::new(info), span);
+            let lambda = Value::Func(Box::new(info), span);
 
             Ok(Trampoline::Done(lambda))
         }
@@ -187,12 +187,12 @@ fn define(form: &Form, span: Span, body: &Value, env: Rc<RefCell<Env>>) -> Resul
             let info = CallableInfo {
                 args,
                 body: new_body,
-                env: env.clone(),
+                env: Rc::downgrade(&env),
             };
 
             let proc = match form {
-                Form::Define => Value::Func(Rc::new(info), span),
-                Form::DefineMacro => Value::Macro(Rc::new(info), span),
+                Form::Define => Value::Func(Box::new(info), span),
+                Form::DefineMacro => Value::Macro(Box::new(info), span),
                 _ => unreachable!("should only get here from define or definemacro"),
             };
 

@@ -1,17 +1,23 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use anyhow::{Result, bail};
 
 use crate::env::Env;
 use crate::span::Span;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct CallableInfo {
     pub args: Vec<String>,
     pub body: Rc<Value>,
-    pub env: Rc<RefCell<Env>>,
+    pub env: Weak<RefCell<Env>>,
+}
+
+impl PartialEq for CallableInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.args == other.args && self.body == other.body
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -26,8 +32,8 @@ pub enum Value {
     Str(Rc<str>, Span),
     Cons(Rc<(Value, Value)>, Span),
     Builtin(BuiltinFn, Span),
-    Func(Rc<CallableInfo>, Span),
-    Macro(Rc<CallableInfo>, Span),
+    Func(Box<CallableInfo>, Span),
+    Macro(Box<CallableInfo>, Span),
 }
 
 impl Value {
