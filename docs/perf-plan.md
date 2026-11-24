@@ -53,7 +53,3 @@ Stay a tree-walker. Bytecode VM stays a "some day" item.
 - Gain per change: three in a row under ~5% means diminishing returns.
 - Tie to a goal: slowest thing actually wanted (paddle.pd, an AoC day) and the x needed.
 - Learning: stop when the next step stops teaching something new.
-
-## Unrelated bug to hunt
-
-- `Value::set_span` (`core/src/value.rs`): `Func` arm vs `Macro` arm. When does `eval_step` call it on a function body?
